@@ -53,3 +53,9 @@ app.post("/api/v1/todoApp/Addnote",multer().none(),(request,response) => {
 })
 });
 
+app.delete("/api/v1/todoApp/DeleteNote",(request,response)=>{
+ database.collection("todoAppcollection").deleteOne({
+    id:request.body.id
+ })
+ response.json("Note deleted successfully")
+});
