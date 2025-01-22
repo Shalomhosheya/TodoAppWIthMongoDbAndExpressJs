@@ -5,6 +5,7 @@ const multer = require("multer");
 
 var app = Express();
 app.use(cors());
+app.use(Express.json()); // Middleware for parsing JSON bodies
 
 const connection_string = "mongodb+srv://admin1:shalom12344321@cluster0.gvd7n.mongodb.net/todoApp?retryWrites=true&w=majority";
 const databaseName = "todoApp";
@@ -36,26 +37,57 @@ app.get("/api/v1/todoApp/getNotes", async (req, res) => {
             .collection("todoAppcollection")
             .find({})
             .toArray();
-        res.send(notes);
+        res.json(notes);
     } catch (error) {
         console.error("Error fetching notes:", error.message);
-        res.status(500).send("Internal Server Error");
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
-app.post("/api/v1/todoApp/Addnote",multer().none(),(request,response) => {
-   database.collection("todoAppcollection").count({},function (error,numOfDocs) {
-   database.collection("todoAppcollection").insertOne({
-   id:(numOfDocs + 1).toString(),
-   description:request.body.newNotes
-   });
-   response.json("Note added successfully")  
-})
+// Route to add a note
+app.post("/api/v1/todoApp/Addnote", multer().none(), async (req, res) => {
+    if (!database) {
+        return res.status(500).send("Database not initialized yet.");
+    }
+
+    const { newNotes } = req.body;
+    if (!newNotes) {
+        return res.status(400).json({ error: "Note content is required" });
+    }
+
+    try {
+        const note = {
+            id: (await database.collection("todoAppcollection").countDocuments() + 1).toString(),
+            description: newNotes,
+        };
+
+        await database.collection("todoAppcollection").insertOne(note);
+        res.json({ message: "Note added successfully", note });
+    } catch (error) {
+        console.error("Error adding note:", error.message);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
-app.delete("/api/v1/todoApp/DeleteNote",(request,response)=>{
- database.collection("todoAppcollection").deleteOne({
-    id:request.body.id
- })
- response.json("Note deleted successfully")
+// Route to delete a note
+app.delete("/api/v1/todoApp/DeleteNote", async (req, res) => {
+    if (!database) {
+        return res.status(500).send("Database not initialized yet.");
+    }
+
+    const id = req.query.id;
+    if (!id) {
+        return res.status(400).json({ error: "Note ID is required" });
+    }
+
+    try {
+        const result = await database.collection("todoAppcollection").deleteOne({ id });
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: "Note not found" });
+        }
+        res.json({ message: "Note deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting note:", error.message);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
